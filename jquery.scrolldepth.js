@@ -65,24 +65,28 @@
       }
     }
 
-    function calculateMarks(docHeight) {
-      return {
-        '25%' : parseInt(docHeight * 0.25, 10),
-        '50%' : parseInt(docHeight * 0.50, 10),
-        '75%' : parseInt(docHeight * 0.75, 10),
-        // 1px cushion to trigger 100% event in iOS
-        '100%': docHeight - 1
-      };
+    function calculateMarks(docHeight,checkPoints) { //Added checkPoints option, where array of percentages can be passed as dynamic milestone
+      var r = {};
+      for(var i = 0; i < checkPoints.length; i ++){
+        if(checkPoints[i] == 100){
+          r[checkPoints[i]] = parseInt(docHeight * 0.99, 10);
+        } else {
+          r[checkPoints[i]] = parseInt(docHeight * checkPoints * 0.01, 10);
+        }
+      }
+      return r;
     }
 
-    function checkMarks(marks, scrollDistance, timing) {
+    function checkMarks(marks, scrollDistance, timing, locks) { // added lock for same checkpoint, so one check point only fires one event.
       // Check each active mark
       $.each(marks, function(key, val) {
-        if ( $.inArray(key, cache) === -1 && scrollDistance >= val ) {
+        if ( $.inArray(key, cache) === -1 && scrollDistance >= val && !locks[key]) {
+          locks[key] = true;
           sendEvent('Percentage', key, timing);
           cache.push(key);
         }
       });
+      return locks;
     }
 
     function checkElements(elements, scrollDistance, timing) {
@@ -146,8 +150,18 @@
         winHeight = window.innerHeight ? window.innerHeight : $window.height(),
         scrollDistance = $window.scrollTop() + winHeight,
 
+        // Set check points in percent for scrolling journey
+        milestones = [10,15,88],
+
+        //
+        locks = {};
+
+        for (var i = 0; i < milestones.length; i ++){
+          locks[milestones[i]] = false;
+        }
+
         // Recalculate percentage marks
-        marks = calculateMarks(docHeight),
+        var marks = calculateMarks(docHeight, milestones);
 
         // Timing
         timing = +new Date - startTime;
@@ -165,7 +179,7 @@
 
       // Check standard marks
       if (options.percentage) {        
-        checkMarks(marks, scrollDistance, timing);
+        locks = checkMarks(marks, scrollDistance, timing, locks);
       }
     }, 500));
 
